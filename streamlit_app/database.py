@@ -1,5 +1,6 @@
 """Read-only MySQL access for the Streamlit dashboard."""
 from typing import Any
+from decimal import Decimal
 
 import mysql.connector
 from mysql.connector import Error
@@ -24,7 +25,10 @@ def fetch_dataframe(config: DatabaseConfig, sql: str, params: tuple[Any, ...] = 
         cursor.execute(sql, params)
         rows = cursor.fetchall()
         import pandas as pd
-        return pd.DataFrame(rows)
+        frame = pd.DataFrame(rows)
+        # mysql-connector returns DECIMAL values as Decimal objects. Dashboard
+        # calculations combine these measurements with float scenario inputs.
+        return frame.apply(lambda column: column.map(lambda value: float(value) if isinstance(value, Decimal) else value))
     except Error as exc:
         raise DashboardDatabaseError(str(exc)) from exc
     finally:

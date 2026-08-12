@@ -13,4 +13,4 @@ def metric(label: str, value: str, help_text: str | None = None) -> None:
 
 
 def financial_disclaimer() -> None:
-    st.markdown("""<div class="disclaimer">Financial metrics are scenario estimates based on configurable assumptions and historical irradiance data. They are not actual plant financial results or investment advice. Not modelled: financing costs, taxes, degradation, equipment replacement, downtime, insurance, maintenance details, tariff changes, actual plant losses, inverter efficiency, panel orientation, or shading.</div>""", unsafe_allow_html=True)
+    st.warning("Financial metrics are scenario estimates based on configurable assumptions and historical irradiance data. They are not actual plant financial results or investment advice. Not modelled: financing costs, taxes, degradation, equipment replacement, downtime, insurance, maintenance details, tariff changes, actual plant losses, inverter efficiency, panel orientation, or shading.")

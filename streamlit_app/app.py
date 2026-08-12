@@ -40,40 +40,42 @@ def sidebar() -> tuple[date, date, dict[str, float]]:
         "om_rate": st.sidebar.slider("O&M rate (% of CAPEX)", 0.0, 20.0, 2.0, 0.1) / 100,
         "co2_factor": st.sidebar.number_input("CO₂ emission factor (kg/kWh)", 0.0, 5.0, 0.70, 0.05),
     }
-    if st.sidebar.button("Refresh Data", use_container_width=True):
+    if st.sidebar.button("Refresh Data", width="stretch"):
         st.cache_data.clear(); st.rerun()
     return start, end, scenario
 
 
 def executive(raw, daily, monthly, metrics, scenario):
     st.title("SOLAR ENERGY & BUSINESS ANALYTICS")
-    st.markdown("<p class='dashboard-subtitle'>Jabalpur | Aug 2024 – Aug 2026 · Historical irradiance and weather analytics</p>", unsafe_allow_html=True)
-    cols = st.columns(6)
+    st.caption("Jabalpur | Aug 2024 – Aug 2026 · Historical irradiance and weather analytics")
+    cols = st.columns(3)
     items = [("Average Solar Radiation", fmt_num(daily.average_solar_radiation.mean(), " W/m²")), ("Peak Solar Radiation", fmt_num(daily.peak_solar_radiation.max(), " W/m²")), ("Annual Energy Potential", fmt_num(metrics["annual_energy"] / 1000, " MWh")), ("Estimated Annual Revenue", fmt_inr(metrics["annual_revenue"])), ("Estimated Payback", "N/A" if metrics["payback"] is None else fmt_num(metrics["payback"], " years")), ("Annual CO₂ Avoided", fmt_num(metrics["co2"] / 1000, " t"))]
-    for col, (label, value) in zip(cols, items):
-        with col: metric(label, value)
+    for row in (items[:3], items[3:]):
+        for col, (label, value) in zip(cols, row):
+            with col: metric(label, value)
     section("Solar resource and business trend")
     a, b = st.columns(2)
-    with a: st.plotly_chart(line(monthly, "period", "average_solar_radiation", "Monthly Solar Resource Trend", "Month", "Average solar radiation (W/m²)"), use_container_width=True)
+    with a: st.plotly_chart(line(monthly, "period", "average_solar_radiation", "Monthly Solar Resource Trend", "Month", "Average solar radiation (W/m²)"), width="stretch")
     model = monthly_model(raw, scenario)
-    with b: st.plotly_chart(line(model, "period", "energy_kwh", "Monthly Estimated Energy Generation", "Month", "Estimated energy (kWh)", "#2E8B57"), use_container_width=True)
-    st.plotly_chart(line(model, "period", "revenue", "Monthly Estimated Revenue", "Month", "Estimated revenue (₹)", "#0B1F3A"), use_container_width=True)
+    with b: st.plotly_chart(line(model, "period", "energy_kwh", "Monthly Estimated Energy Generation", "Month", "Estimated energy (kWh)", "#2E8B57"), width="stretch")
+    st.plotly_chart(line(model, "period", "revenue", "Monthly Estimated Revenue", "Month", "Estimated revenue (₹)", "#0B1F3A"), width="stretch")
     section("Business scenario summary")
-    st.dataframe(pd.DataFrame({"Assumption": ["Capacity", "Performance ratio", "Tariff", "CAPEX", "O&M rate"], "Selected value": [f'{scenario["capacity_kw"]:,.0f} kW', f'{scenario["performance_ratio"]:.0%}', fmt_inr(scenario["tariff"]), fmt_inr(scenario["capex"]), f'{scenario["om_rate"]:.1%}']}), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame({"Assumption": ["Capacity", "Performance ratio", "Tariff", "CAPEX", "O&M rate"], "Selected value": [f'{scenario["capacity_kw"]:,.0f} kW', f'{scenario["performance_ratio"]:.0%}', fmt_inr(scenario["tariff"]), fmt_inr(scenario["capex"]), f'{scenario["om_rate"]:.1%}']}), hide_index=True)
 
 
 def performance(raw, daily, monthly, profile, metrics):
     st.title("Solar Energy Performance")
-    cols = st.columns(6)
+    cols = st.columns(3)
     values = [("Average Solar Radiation", fmt_num(daily.average_solar_radiation.mean(), " W/m²")), ("Average DNI", fmt_num(daily.average_dni.mean(), " W/m²")), ("Average GTI", fmt_num(daily.average_gti.mean(), " W/m²")), ("Peak Solar Radiation", fmt_num(daily.peak_solar_radiation.max(), " W/m²")), ("Specific Yield", fmt_num(metrics["specific_yield"], " kWh/kW/year")), ("Capacity Factor", fmt_num(metrics["capacity_factor"] * 100, "%"))]
-    for col, (label, value) in zip(cols, values):
-        with col: metric(label, value)
+    for row in (values[:3], values[3:]):
+        for col, (label, value) in zip(cols, row):
+            with col: metric(label, value)
     for column, title in [("solar_radiation", "Hourly Solar Radiation"), ("dni", "Hourly DNI"), ("gti", "Hourly GTI")]:
-        st.plotly_chart(line(raw, "timestamp", column, title, "Timestamp", "W/m²"), use_container_width=True)
+        st.plotly_chart(line(raw, "timestamp", column, title, "Timestamp", "W/m²"), width="stretch")
     a, b = st.columns(2)
-    with a: st.plotly_chart(bar(profile, "hour_of_day", "average_solar_radiation", "Average Solar Radiation by Hour", "Hour", "W/m²"), use_container_width=True)
-    with b: st.plotly_chart(bar(profile, "hour_of_day", "average_gti", "Average GTI by Hour", "Hour", "W/m²", "#2E8B57"), use_container_width=True)
-    st.plotly_chart(line(monthly, "period", "average_solar_radiation", "Monthly Solar Resource", "Month", "Average W/m²"), use_container_width=True)
+    with a: st.plotly_chart(bar(profile, "hour_of_day", "average_solar_radiation", "Average Solar Radiation by Hour", "Hour", "W/m²"), width="stretch")
+    with b: st.plotly_chart(bar(profile, "hour_of_day", "average_gti", "Average GTI by Hour", "Hour", "W/m²", "#2E8B57"), width="stretch")
+    st.plotly_chart(line(monthly, "period", "average_solar_radiation", "Monthly Solar Resource", "Month", "Average W/m²"), width="stretch")
 
 
 def weather(raw, daily):
@@ -89,30 +91,31 @@ def weather(raw, daily):
     for col, (key, label) in zip(cols, fields):
         with col: metric(f"{label}/Solar correlation", fmt_num(corrs[key]))
     for key, label in fields:
-        st.plotly_chart(scatter(raw, key, "solar_radiation", f"{label} vs Solar Radiation", label, "Solar radiation (W/m²)"), use_container_width=True)
+        st.plotly_chart(scatter(raw, key, "solar_radiation", f"{label} vs Solar Radiation", label, "Solar radiation (W/m²)"), width="stretch")
     st.info(" · ".join(f"{label} and solar radiation show a {correlation_label(corrs[key])} (r={corrs[key]:.2f}) in the selected data" for key, label in fields) + ". Correlation does not imply causation.")
 
 
 def financial(raw, scenario, metrics):
     st.title("FINANCIAL & ROI SIMULATOR")
     st.caption("Adjust the scenario assumptions in the sidebar to model a different configuration.")
-    cols = st.columns(6)
+    cols = st.columns(3)
     vals = [("Estimated Annual Energy", fmt_num(metrics["annual_energy"] / 1000, " MWh")), ("Estimated Annual Revenue", fmt_inr(metrics["annual_revenue"])), ("Annual O&M", fmt_inr(metrics["annual_om"])), ("Annual Net Benefit", fmt_inr(metrics["net_benefit"])), ("Estimated ROI", fmt_num(metrics["roi"] * 100, "%")), ("Estimated Payback", "N/A" if metrics["payback"] is None else fmt_num(metrics["payback"], " years"))]
-    for col, (label, value) in zip(cols, vals):
-        with col: metric(label, value)
+    for row in (vals[:3], vals[3:]):
+        for col, (label, value) in zip(cols, row):
+            with col: metric(label, value)
     model = monthly_model(raw, scenario)
     a, b, c = st.columns(3)
-    with a: st.plotly_chart(bar(model, "period", "energy_kwh", "Monthly Energy Generation", "Month", "kWh", "#2E8B57"), use_container_width=True)
-    with b: st.plotly_chart(bar(model, "period", "revenue", "Monthly Revenue", "Month", "₹"), use_container_width=True)
+    with a: st.plotly_chart(bar(model, "period", "energy_kwh", "Monthly Energy Generation", "Month", "kWh", "#2E8B57"), width="stretch")
+    with b: st.plotly_chart(bar(model, "period", "revenue", "Monthly Revenue", "Month", "₹"), width="stretch")
     net_monthly = model.assign(net_benefit=model.revenue - metrics["annual_om"] / 12)
-    with c: st.plotly_chart(bar(net_monthly, "period", "net_benefit", "Monthly Net Benefit", "Month", "₹", "#0B1F3A"), use_container_width=True)
+    with c: st.plotly_chart(bar(net_monthly, "period", "net_benefit", "Monthly Net Benefit", "Month", "₹", "#0B1F3A"), width="stretch")
     capacities, tariffs = [50, 100, 150, 200, 250, 500], [4, 6, 8, 10, 12]
     base_gti_energy = raw.gti.fillna(0).clip(lower=0).sum() / 1000 * scenario["performance_ratio"] / max((raw.timestamp.max().date() - raw.timestamp.min().date()).days + 1, 1) * 365.25
     matrix = [[base_gti_energy * capacity * tariff for tariff in tariffs] for capacity in capacities]
-    st.plotly_chart(heatmap(matrix, tariffs, capacities, "Revenue Sensitivity: Capacity vs Tariff", "Annual revenue (₹)"), use_container_width=True)
+    st.plotly_chart(heatmap(matrix, tariffs, capacities, "Revenue Sensitivity: Capacity vs Tariff", "Annual revenue (₹)"), width="stretch")
     capex_values = [scenario["capex"] * x for x in (0.6, 0.8, 1, 1.2, 1.5)]
     paybacks = [capex / metrics["net_benefit"] if metrics["net_benefit"] > 0 else None for capex in capex_values]
-    st.plotly_chart(line(pd.DataFrame({"CAPEX": capex_values, "payback_years": paybacks}), "CAPEX", "payback_years", "CAPEX Sensitivity: Payback Period", "CAPEX (₹)", "Payback period (years)", "#0B1F3A"), use_container_width=True)
+    st.plotly_chart(line(pd.DataFrame({"CAPEX": capex_values, "payback_years": paybacks}), "CAPEX", "payback_years", "CAPEX Sensitivity: Payback Period", "CAPEX (₹)", "Payback period (years)", "#0B1F3A"), width="stretch")
     financial_disclaimer()
 
 
@@ -120,16 +123,16 @@ def operations(raw, daily, monthly, profile):
     st.title("Operations & Decision Support")
     section("Best Solar Hours")
     ranked_hours = profile.sort_values("average_solar_radiation", ascending=False)
-    st.plotly_chart(bar(ranked_hours, "hour_of_day", "average_solar_radiation", "Average Solar Radiation by Hour", "Hour of day", "Average W/m²"), use_container_width=True)
-    st.dataframe(ranked_hours.head(3).style.format(precision=2), hide_index=True, use_container_width=True)
+    st.plotly_chart(bar(ranked_hours, "hour_of_day", "average_solar_radiation", "Average Solar Radiation by Hour", "Hour of day", "Average W/m²"), width="stretch")
+    st.dataframe(ranked_hours.head(3).style.format(precision=2), hide_index=True)
     section("Best Solar Months")
     ranked_months = monthly.sort_values("average_solar_radiation", ascending=False).copy(); ranked_months["month"] = ranked_months.period.dt.strftime("%b %Y")
-    st.dataframe(ranked_months[["month", "average_solar_radiation", "peak_solar_radiation", "average_dni", "average_gti"]].style.format(precision=2), hide_index=True, use_container_width=True)
+    st.dataframe(ranked_months[["month", "average_solar_radiation", "peak_solar_radiation", "average_dni", "average_gti"]].style.format(precision=2), hide_index=True)
     section("Highest and lowest solar-resource days")
     columns = ["date", "average_solar_radiation", "peak_solar_radiation", "average_dni", "average_gti", "average_cloud_cover"]
     a, b = st.columns(2)
-    with a: st.dataframe(daily.nlargest(10, "average_solar_radiation")[columns].style.format(precision=2), hide_index=True, use_container_width=True)
-    with b: st.dataframe(daily.nsmallest(10, "average_solar_radiation")[columns].style.format(precision=2), hide_index=True, use_container_width=True)
+    with a: st.dataframe(daily.nlargest(10, "average_solar_radiation")[columns].style.format(precision=2), hide_index=True)
+    with b: st.dataframe(daily.nsmallest(10, "average_solar_radiation")[columns].style.format(precision=2), hide_index=True)
     section("Data quality and source")
     missing = int(raw[["temperature", "humidity", "cloud_cover", "wind_speed", "solar_radiation", "dni", "gti", "sunshine_duration"]].isna().sum().sum())
     duplicates = int(raw.duplicated(subset=["timestamp"]).sum())
@@ -159,7 +162,7 @@ def main():
     elif page.startswith("04"): financial(raw, scenario, metrics)
     else: operations(raw, daily, monthly, profile)
     export = raw[["timestamp", "temperature", "humidity", "cloud_cover", "wind_speed", "solar_radiation", "dni", "gti", "sunshine_duration"]]
-    st.sidebar.download_button("Download filtered CSV", export.to_csv(index=False).encode("utf-8"), "solar_energy_filtered.csv", "text/csv", use_container_width=True)
+    st.sidebar.download_button("Download filtered CSV", export.to_csv(index=False).encode("utf-8"), "solar_energy_filtered.csv", "text/csv", width="stretch")
 
 
 if __name__ == "__main__": main()

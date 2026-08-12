@@ -58,11 +58,7 @@ def load_hourly_profile(start: date, end: date) -> pd.DataFrame:
 def load_data_quality() -> pd.DataFrame:
     sql = """SELECT COUNT(*) AS total_records, MIN(`timestamp`) AS minimum_timestamp,
         MAX(`timestamp`) AS maximum_timestamp,
-        COUNT(*) - COUNT(solar_radiation) - COUNT(temperature) - COUNT(humidity) - COUNT(cloud_cover)
-          - COUNT(wind_speed) - COUNT(dni) - COUNT(gti) - COUNT(sunshine_duration) AS missing_value_count,
         (SELECT COUNT(*) FROM (SELECT `timestamp`, latitude, longitude FROM solar_energy
           GROUP BY `timestamp`, latitude, longitude HAVING COUNT(*) > 1) AS duplicates) AS duplicate_count
         FROM solar_energy"""
-    # Missing values are calculated below from the relevant columns; SQL NULL arithmetic is not reliable here.
-    frame = fetch_dataframe(get_database_config(), sql)
-    return frame
+    return fetch_dataframe(get_database_config(), sql)
