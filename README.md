@@ -95,6 +95,136 @@ The sidebar provides the date filter and clearly labelled, configurable scenario
 
 Energy is always labelled **Estimated Energy Generation**, derived for each hourly record as `GTI / 1000 × capacity (kW) × performance ratio`. Annualized energy uses the selected days × 365.25. Revenue, O&M, net benefit, ROI, payback, specific yield, capacity factor, and avoided CO₂ are scenario calculations—not actual plant measurements or investment advice.
 
+### Complete Dashboard Guide
+
+The Streamlit application is the primary interactive layer for this project. It reads real hourly records from MySQL only; it does not create mock data, call Open-Meteo during page loads, or modify database records.
+
+#### Shared sidebar controls
+
+Every page uses these sidebar controls. The date range filters all KPIs, charts, rankings, correlations, and downloads.
+
+| Control | Default | Explanation |
+|---|---:|---|
+| Analysis date range | 12 Aug 2024–11 Aug 2026 | Inclusive date filter, limited to the loaded historical period. |
+| System capacity | 100 kW | Scenario capacity used in estimated-energy and financial calculations. |
+| Performance ratio | 80% | Scenario multiplier for aggregate system performance/losses. |
+| Electricity tariff | ₹8/kWh | Scenario tariff used for revenue calculations. |
+| Installation cost (CAPEX) | ₹5,000,000 | Scenario initial cost used for O&M, ROI, and payback. |
+| O&M rate | 2% of CAPEX | Annual operating-and-maintenance scenario assumption. |
+| CO₂ emission factor | 0.70 kg/kWh | Scenario factor for the estimated avoided-emissions calculation. |
+| Refresh Data | — | Clears the 15-minute query cache and reloads data from MySQL. It does not run the ETL. |
+| Download filtered CSV | — | Exports selected hourly timestamps plus weather, radiation, DNI, GTI, and sunshine-duration fields. |
+
+All financial values and the emissions factor are configurable scenario assumptions, not actual plant, market, or official emissions data.
+
+#### 01 Executive & Business Overview
+
+This management summary presents the selected period's resource quality and scenario outcomes.
+
+| KPI or chart | Explanation |
+|---|---|
+| Average Solar Radiation | Mean of daily average `solar_radiation`, in W/m². |
+| Peak Solar Radiation | Highest daily `solar_radiation`, in W/m². |
+| Annual Energy Potential | Annualized estimated energy, displayed in MWh. |
+| Estimated Annual Revenue | Annualized estimated energy × selected electricity tariff. |
+| Estimated Payback | CAPEX ÷ annual net benefit; `N/A` when benefit is zero or negative. |
+| Annual CO₂ Avoided | Annualized estimated energy × selected CO₂ factor, displayed in tonnes. |
+| Monthly Solar Resource Trend | Monthly average solar radiation, showing seasonal resource patterns. |
+| Monthly Estimated Energy Generation | Modelled monthly energy based on hourly GTI, capacity, and performance ratio. |
+| Monthly Estimated Revenue | Modelled monthly energy × tariff. |
+| Business Scenario Summary | The capacity, performance ratio, tariff, CAPEX, and O&M inputs currently in use. |
+
+#### 02 Solar Energy Performance
+
+This page provides detailed solar-resource trends and indicators.
+
+| KPI or chart | Explanation |
+|---|---|
+| Average Solar Radiation | Mean daily horizontal shortwave solar radiation. |
+| Average DNI | Mean daily Direct Normal Irradiance (direct radiation perpendicular to the sun). |
+| Average GTI | Mean daily Global Tilted Irradiance; this is used by the energy model. |
+| Peak Solar Radiation | Highest daily radiation observed in the selected range. |
+| Specific Yield | Annualized estimated energy ÷ selected capacity, in kWh/kW/year. |
+| Capacity Factor | Annualized estimated energy ÷ (capacity × 8,760 hours), as a percentage. |
+| Hourly Solar Radiation / DNI / GTI | Interactive hourly time-series charts for the selected date range. |
+| Average Radiation and GTI by Hour | Hour-of-day averages that identify typical strong solar hours. |
+| Monthly Solar Resource | Monthly average solar-radiation trend. |
+
+#### 03 Weather Impact Analysis
+
+This page compares weather fields with hourly solar radiation.
+
+| Item | Explanation |
+|---|---|
+| Average Temperature, Humidity, Cloud Cover, Wind Speed | Selected-period descriptive averages for weather measurements. |
+| Correlation cards | Pearson correlation (`r`) of cloud cover, temperature, humidity, and wind speed against solar radiation. Values range from -1 to +1. |
+| Scatter plots | Individual hourly observations for each weather field versus solar radiation. |
+| Automated insight | Labels the calculated result as weak/moderate/strong and positive/negative. |
+
+Negative correlation means the variables generally move in opposite directions in this historical data; positive correlation means they generally move together. Correlation does not imply causation.
+
+#### 04 Financial & ROI Simulator
+
+This page converts selected historical GTI into a transparent business scenario.
+
+| KPI or chart | Explanation |
+|---|---|
+| Estimated Annual Energy | Selected-period estimated energy annualized to 365.25 days. |
+| Estimated Annual Revenue | Annualized energy × tariff. |
+| Annual O&M | CAPEX × O&M rate. |
+| Annual Net Benefit | Annual revenue − annual O&M. |
+| Estimated ROI | Annual net benefit ÷ CAPEX. |
+| Estimated Payback | CAPEX ÷ annual net benefit; not shown when benefit is not positive. |
+| Monthly Energy, Revenue, and Net Benefit | Modelled monthly values; monthly net benefit subtracts one twelfth of annual O&M each month. |
+| Revenue Sensitivity: Capacity vs Tariff | Heatmap for capacities 50, 100, 150, 200, 250, and 500 kW and tariffs ₹4, ₹6, ₹8, ₹10, and ₹12/kWh. Values are calculated from selected real GTI data. |
+| CAPEX Sensitivity: Payback Period | Payback at 60%, 80%, 100%, 120%, and 150% of selected CAPEX, using the same annual net benefit. |
+
+The simulator does not model financing costs, taxes, degradation, equipment replacement, downtime, insurance, detailed maintenance, tariff changes, actual plant losses, inverter efficiency, panel orientation, or shading. It is not investment advice.
+
+#### 05 Operations & Decision Support
+
+This page supports planning with rankings and data-quality information.
+
+| Item | Explanation |
+|---|---|
+| Best Solar Hours | Hour-of-day solar profile sorted by average solar radiation; the top three include average radiation, DNI, and GTI. |
+| Best Solar Months | Selected months ranked by average solar radiation, with peak radiation, average DNI, and GTI. |
+| Highest Solar-Resource Days | Top ten days by daily average solar radiation, including peak radiation, DNI, GTI, and cloud cover. |
+| Lowest Solar-Resource Days | Bottom ten days by daily average solar radiation. |
+| Data Quality | Selected-range record count, first/last timestamp, duplicate timestamp count, and missing measurement count. |
+| Data Source | Shows Open-Meteo, Jabalpur, coordinates, and hourly frequency. |
+
+#### Calculation definitions
+
+The app always calls modelled output **Estimated Energy Generation** because the source dataset contains irradiance and weather data, not physical plant meter readings.
+
+```text
+Hourly estimated energy (kWh)
+  = GTI (W/m²) / 1000 × system capacity (kW) × performance ratio
+
+Selected-period estimated energy = sum of hourly estimated energy
+Annualized energy = selected-period energy / selected days × 365.25
+Estimated annual revenue = annualized energy × tariff
+Annual O&M = CAPEX × O&M rate
+Annual net benefit = annual revenue − annual O&M
+Estimated payback = CAPEX / annual net benefit, when benefit > 0
+Estimated annual ROI = annual net benefit / CAPEX
+Estimated CO₂ avoided (kg) = annualized energy × CO₂ factor
+Specific yield = annualized energy / capacity
+Capacity factor = annualized energy / (capacity × 8,760)
+```
+
+#### Database, cache, and error handling
+
+- Raw hourly data supports detailed time series, weather correlations, energy calculations, data quality, and CSV export.
+- Daily SQL summaries support daily KPIs and highest/lowest-day rankings.
+- Monthly and hourly profile aggregations support resource trends and operational rankings.
+- Query results use `st.cache_data` with a 900-second lifetime; **Refresh Data** clears this cache.
+- If MySQL is unavailable, the app shows a clear connection message and does not expose credentials or a technical stack trace.
+- The dashboard is read-only. The ETL remains responsible for acquiring, validating, transforming, and loading data.
+
+For raw field descriptions, units, null handling, and source context, see [DATA_DICTIONARY.md](DATA_DICTIONARY.md).
+
 ## MySQL and Environment
 
 Start the local MySQL Server before ETL or Streamlit. Configure these values in `.env` (never commit it): `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASSWORD`, and `MYSQL_DATABASE`. `.env` is already excluded by `.gitignore`.

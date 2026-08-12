@@ -1,5 +1,6 @@
 """Entry point: streamlit run streamlit_app/app.py."""
 from datetime import date
+import logging
 from pathlib import Path
 import sys
 
@@ -20,6 +21,7 @@ from streamlit_app.styles import apply_styles
 
 st.set_page_config(page_title="Solar Energy & Business Analytics", page_icon="☀️", layout="wide")
 apply_styles()
+LOGGER = logging.getLogger("solar_dashboard")
 
 
 def fmt_inr(value: float) -> str: return f"₹{value:,.0f}"
@@ -142,12 +144,33 @@ def operations(raw, daily, monthly, profile):
     st.caption(f"Data source: {DATA_SOURCE} · Location: {LOCATION} · Coordinates: {LATITUDE}, {LONGITUDE} · Frequency: Hourly")
 
 
+def _is_development() -> bool:
+    try:
+        return st.config.get_option("global.developmentMode")
+    except Exception:
+        return False
+
+
+def _handle_dashboard_error(exc: Exception, production_message: str) -> None:
+    LOGGER.exception("Dashboard error")
+    if _is_development():
+        st.error(f"Dashboard data error: {type(exc).__name__}")
+    else:
+        st.error(production_message)
+
+
 def main():
     start, end, scenario = sidebar()
     try:
         raw = load_solar_data(start, end); daily = load_daily_summary(start, end); monthly = load_monthly_summary(start, end); profile = load_hourly_profile(start, end)
-    except (DashboardDatabaseError, ValueError) as exc:
-        st.error("Unable to connect to MySQL. Please ensure MySQL Server is running and .env credentials are correct.")
+    except DashboardDatabaseError as exc:
+        _handle_dashboard_error(exc, "Unable to connect to MySQL. Please ensure MySQL Server is running and .env credentials are correct.")
+        return
+    except ValueError as exc:
+        _handle_dashboard_error(exc, "Unable to load dashboard configuration. Please verify the local environment variables.")
+        return
+    except Exception as exc:
+        _handle_dashboard_error(exc, "Unable to load dashboard data. Please try again later.")
         return
     if raw.empty or daily.empty:
         st.warning("No database records were found for the selected date range.")
