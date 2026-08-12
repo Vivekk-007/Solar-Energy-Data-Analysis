@@ -155,8 +155,19 @@ def _handle_dashboard_error(exc: Exception, production_message: str) -> None:
     LOGGER.exception("Dashboard error")
     if _is_development():
         st.error(f"Dashboard data error: {type(exc).__name__}")
-    else:
-        st.error(production_message)
+        return
+    if isinstance(exc, DashboardDatabaseError):
+        lower = str(exc).lower()
+        if "connection failed" in lower:
+            st.error("Unable to connect to the database. Please verify the configured MySQL host, port, user, password, and database.")
+            return
+        if "query failed" in lower:
+            st.error("Unable to execute the dashboard query. Please contact the administrator.")
+            return
+    if isinstance(exc, ValueError):
+        st.error("Dashboard configuration is invalid. Please check the database settings.")
+        return
+    st.error(production_message)
 
 
 def main():

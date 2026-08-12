@@ -21,6 +21,12 @@ def fetch_dataframe(config: DatabaseConfig, sql: str, params: tuple[Any, ...] = 
             host=config.host, port=config.port, user=config.user,
             password=config.password, database=config.database,
         )
+    except Error as exc:
+        raise DashboardDatabaseError(
+            "Database connection failed. Please verify the configured MySQL host, port, user, password, and database."
+        ) from exc
+
+    try:
         cursor = connection.cursor(dictionary=True)
         cursor.execute(sql, params)
         rows = cursor.fetchall()
@@ -30,7 +36,9 @@ def fetch_dataframe(config: DatabaseConfig, sql: str, params: tuple[Any, ...] = 
         # calculations combine these measurements with float scenario inputs.
         return frame.apply(lambda column: column.map(lambda value: float(value) if isinstance(value, Decimal) else value))
     except Error as exc:
-        raise DashboardDatabaseError(str(exc)) from exc
+        raise DashboardDatabaseError(
+            "Database query failed. Please verify the data source and query."
+        ) from exc
     finally:
         if cursor is not None:
             cursor.close()
