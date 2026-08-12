@@ -14,8 +14,8 @@ import streamlit as st
 from streamlit_app.calculations import correlation_label, model_metrics, monthly_model
 from streamlit_app.charts import bar, heatmap, line, scatter
 from streamlit_app.components import financial_disclaimer, metric, section
-from streamlit_app.config import DATA_SOURCE, LATITUDE, LOCATION, LONGITUDE, MAX_DATE, MIN_DATE
-from streamlit_app.database import DashboardDatabaseError
+from streamlit_app.config import DATA_SOURCE, LATITUDE, LOCATION, LONGITUDE, MAX_DATE, MIN_DATE, get_database_config
+from streamlit_app.database import DashboardDatabaseError, get_database_health
 from streamlit_app.queries import load_daily_summary, load_hourly_profile, load_monthly_summary, load_solar_data
 from streamlit_app.styles import apply_styles
 
@@ -151,27 +151,73 @@ def _is_development() -> bool:
         return False
 
 
+def _mask_host(host: str) -> str:
+    if not host or host in {"localhost", "127.0.0.1", "::1"}:
+        return host
+    if "." not in host:
+        return host[:3] + "..."
+    parts = host.split('.')
+    return f"{parts[0]}.***.{parts[-1]}"
+
+
+def _show_database_health() -> None:
+    try:
+        config = get_database_config()
+    except ValueError as exc:
+        with st.sidebar.expander("Database diagnostics", expanded=False):
+            st.warning("Database credentials are not configured or are invalid.")
+            if _is_development():
+                st.caption(str(exc))
+        return
+
+    try:
+        health = get_database_health(config)
+        with st.sidebar.expander("Database diagnostics", expanded=False):
+            st.write("**Database host:**", _mask_host(config.host))
+            st.write("**Database:**", config.database)
+            st.write("**Status:**", "Connected")
+            st.write("**Records:**", f"{health['total_records']:,}")
+            st.write("**Min timestamp:**", health['minimum_timestamp'])
+            st.write("**Max timestamp:**", health['maximum_timestamp'])
+    except DashboardDatabaseError as exc:
+        with st.sidebar.expander("Database diagnostics", expanded=False):
+            st.error(str(exc))
+            if _is_development():
+                st.caption(type(exc).__name__)
+
+
 def _handle_dashboard_error(exc: Exception, production_message: str) -> None:
     LOGGER.exception("Dashboard error")
     if _is_development():
         st.error(f"Dashboard data error: {type(exc).__name__}")
+        st.error(str(exc))
         return
     if isinstance(exc, DashboardDatabaseError):
-        lower = str(exc).lower()
-        if "connection failed" in lower:
-            st.error("Unable to connect to the database. Please verify the configured MySQL host, port, user, password, and database.")
+        text = str(exc)
+        if "host or port is unreachable" in text.lower() or "can't connect" in text.lower() or "connection refused" in text.lower():
+            st.error("Cloud deployment cannot access your local MySQL server. Configure a remotely accessible MySQL database.")
             return
-        if "query failed" in lower:
-            st.error("Unable to execute the dashboard query. Please contact the administrator.")
+        if "authentication failed" in text.lower():
+            st.error("Database authentication failed. Verify the configured username and password.")
             return
+        if "database 'test1' was not found" in text.lower():
+            st.error("Database 'test1' was not found on the configured MySQL server.")
+            return
+        if "table or view is missing" in text.lower():
+            st.error("A required table or view is missing. Ensure the database schema is initialized.")
+            return
+        st.error("Unable to connect to the database. Please verify the configured MySQL host, port, user, password, and database.")
+        return
     if isinstance(exc, ValueError):
-        st.error("Dashboard configuration is invalid. Please check the database settings.")
+        st.error("Database credentials are not configured or are invalid. Please verify the settings.")
         return
     st.error(production_message)
 
 
 def main():
     start, end, scenario = sidebar()
+    if _is_development():
+        _show_database_health()
     try:
         raw = load_solar_data(start, end); daily = load_daily_summary(start, end); monthly = load_monthly_summary(start, end); profile = load_hourly_profile(start, end)
     except DashboardDatabaseError as exc:
